@@ -447,7 +447,7 @@ Create PHP files with intentional PHPCS violations in `test-files/` to verify di
 ## Resources & Credits
 
 ### Learn More
-- [PHP_CodeSniffer Documentation](https://github.com/squizlabs/PHP_CodeSniffer/wiki)
+- [PHP_CodeSniffer Documentation](https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki)
 - [PSR Standards](https://www.php-fig.org/psr/)
 - [Zed Editor Documentation](https://zed.dev/docs)
 
