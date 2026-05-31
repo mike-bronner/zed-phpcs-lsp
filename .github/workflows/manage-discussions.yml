@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: Auto-escalate confirmed bugs
       if: github.event.action == 'labeled' && contains(github.event.label.name, 'confirmed-bug')
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const { data: discussion } = await github.rest.discussions.get({
@@ -52,7 +52,7 @@ jobs:
 
     - name: Add helpful comment for new bug reports
       if: github.event.action == 'created' && contains(github.event.discussion.labels, 'bug-report')
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           await github.rest.discussions.createComment({
