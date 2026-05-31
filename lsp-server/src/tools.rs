@@ -75,14 +75,21 @@ pub fn command_exists(cmd: &str) -> bool {
 /// setting always takes effect — e.g. on Windows, where the Composer-generated
 /// `vendor/bin/phpcs` proxy cannot be spawned directly and a user must point at
 /// a working binary. See `plan_spawn` for how the resolved path is executed.
-pub fn detect_tool_path(tool: PhpTool, workspace_root: Option<&Path>, user_path: Option<&str>) -> String {
+pub fn detect_tool_path(
+    tool: PhpTool,
+    workspace_root: Option<&Path>,
+    user_path: Option<&str>,
+) -> String {
     let display = tool.display_name();
     let name = tool.name();
 
     // Priority 1: User-configured path (explicit override wins over auto-detection)
     if let Some(path) = user_path {
         if !path.trim().is_empty() {
-            eprintln!("🎯 PHPCS LSP: Using user-configured {} path: {}", display, path);
+            eprintln!(
+                "🎯 PHPCS LSP: Using user-configured {} path: {}",
+                display, path
+            );
             return path.to_string();
         }
     }
@@ -105,7 +112,10 @@ pub fn detect_tool_path(tool: PhpTool, workspace_root: Option<&Path>, user_path:
 
     // Priority 3: Environment variable
     let env_var = tool.env_var_name();
-    eprintln!("🔍 PHPCS LSP: Checking {} env var for {}...", env_var, display);
+    eprintln!(
+        "🔍 PHPCS LSP: Checking {} env var for {}...",
+        env_var, display
+    );
     if let Ok(path) = std::env::var(env_var) {
         if !path.trim().is_empty() {
             eprintln!("✅ PHPCS LSP: Found {} via {} env var", display, env_var);
@@ -300,9 +310,18 @@ mod tests {
 
     #[test]
     fn windows_extension_matching_is_case_insensitive() {
-        assert_eq!(plan_spawn(r"C:\t\phpcs.EXE", true), direct(r"C:\t\phpcs.EXE"));
-        assert_eq!(plan_spawn(r"C:\t\phpcs.BAT", true), via_cmd(r"C:\t\phpcs.BAT"));
-        assert_eq!(plan_spawn(r"C:\t\phpcs.Phar", true), via_php(r"C:\t\phpcs.Phar"));
+        assert_eq!(
+            plan_spawn(r"C:\t\phpcs.EXE", true),
+            direct(r"C:\t\phpcs.EXE")
+        );
+        assert_eq!(
+            plan_spawn(r"C:\t\phpcs.BAT", true),
+            via_cmd(r"C:\t\phpcs.BAT")
+        );
+        assert_eq!(
+            plan_spawn(r"C:\t\phpcs.Phar", true),
+            via_php(r"C:\t\phpcs.Phar")
+        );
     }
 
     #[test]

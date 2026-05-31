@@ -3,15 +3,15 @@ mod tools;
 use anyhow::Result;
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
-use tokio::process::Command as ProcessCommand;
-use tokio::sync::Semaphore;
-use tokio::time::{timeout, Duration};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use tokio::io::{stdin, stdout};
+use tokio::process::Command as ProcessCommand;
+use tokio::sync::Semaphore;
+use tokio::time::{timeout, Duration};
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -54,7 +54,7 @@ struct PhpcsLanguageServer {
     results_cache: std::sync::Arc<std::sync::RwLock<HashMap<Url, CachedResults>>>,
     // Memory tracking
     total_memory_usage: std::sync::Arc<AtomicUsize>,
-    standard: std::sync::Arc<std::sync::RwLock<Option<String>>>,  // None means use PHPCS defaults
+    standard: std::sync::Arc<std::sync::RwLock<Option<String>>>, // None means use PHPCS defaults
     // Cached auto-detected paths
     phpcs_path: std::sync::Arc<std::sync::RwLock<Option<String>>>,
     phpcbf_path: std::sync::Arc<std::sync::RwLock<Option<String>>>,
@@ -141,7 +141,7 @@ impl PhpcsLanguageServer {
             open_docs: std::sync::Arc::new(std::sync::RwLock::new(HashMap::with_capacity(100))),
             results_cache: std::sync::Arc::new(std::sync::RwLock::new(HashMap::with_capacity(100))),
             total_memory_usage: std::sync::Arc::new(AtomicUsize::new(0)),
-            standard: std::sync::Arc::new(std::sync::RwLock::new(None)),  // Let PHPCS use its defaults
+            standard: std::sync::Arc::new(std::sync::RwLock::new(None)), // Let PHPCS use its defaults
             phpcs_path: std::sync::Arc::new(std::sync::RwLock::new(None)),
             phpcbf_path: std::sync::Arc::new(std::sync::RwLock::new(None)),
             user_phpcs_path: std::sync::Arc::new(std::sync::RwLock::new(None)),
@@ -164,7 +164,8 @@ impl PhpcsLanguageServer {
         let checksum = format!("{:x}", hasher.finalize());
 
         // Update memory tracking
-        self.total_memory_usage.fetch_add(compressed_size, Ordering::Relaxed);
+        self.total_memory_usage
+            .fetch_add(compressed_size, Ordering::Relaxed);
 
         CompressedDocument {
             compressed_data,
@@ -181,8 +182,6 @@ impl PhpcsLanguageServer {
 
         Ok(content)
     }
-
-
 
     fn get_tool_path(
         &self,
@@ -203,15 +202,16 @@ impl PhpcsLanguageServer {
 
         // Gather inputs for detection
         let user_path_val = user_path.read().ok().and_then(|guard| guard.clone());
-        let workspace_root = self.workspace_root.read().ok().and_then(|guard| guard.clone());
+        let workspace_root = self
+            .workspace_root
+            .read()
+            .ok()
+            .and_then(|guard| guard.clone());
 
         // Detect with full priority order:
         // vendor/bin → user config → env var → system PATH → bundled PHAR
-        let path = tools::detect_tool_path(
-            tool,
-            workspace_root.as_deref(),
-            user_path_val.as_deref(),
-        );
+        let path =
+            tools::detect_tool_path(tool, workspace_root.as_deref(), user_path_val.as_deref());
 
         eprintln!("🎯 PHPCS LSP: Final {} path: {}", display, path);
 
@@ -224,42 +224,47 @@ impl PhpcsLanguageServer {
     }
 
     fn get_phpcs_path(&self) -> String {
-        self.get_tool_path(
-            PhpTool::Phpcs,
-            &self.user_phpcs_path,
-            &self.phpcs_path,
-        )
+        self.get_tool_path(PhpTool::Phpcs, &self.user_phpcs_path, &self.phpcs_path)
     }
 
     fn get_phpcbf_path(&self) -> String {
-        self.get_tool_path(
-            PhpTool::Phpcbf,
-            &self.user_phpcbf_path,
-            &self.phpcbf_path,
-        )
+        self.get_tool_path(PhpTool::Phpcbf, &self.user_phpcbf_path, &self.phpcbf_path)
     }
 
     /// Run phpcbf to fix code style issues and return the fixed content
     /// If `sniff_filter` is provided, only fixes for that specific sniff will be applied
-    async fn run_phpcbf(&self, uri: &Url, content: &str, sniff_filter: Option<&str>) -> Result<String> {
-        let file_name = uri.path_segments()
+    async fn run_phpcbf(
+        &self,
+        uri: &Url,
+        content: &str,
+        sniff_filter: Option<&str>,
+    ) -> Result<String> {
+        let file_name = uri
+            .path_segments()
             .and_then(|mut segments| segments.next_back())
             .unwrap_or("unknown");
 
-        eprintln!("🔧 PHPCS LSP: Running phpcbf on {}{}", file_name,
-            sniff_filter.map(|s| format!(" (sniff: {})", s)).unwrap_or_default());
+        eprintln!(
+            "🔧 PHPCS LSP: Running phpcbf on {}{}",
+            file_name,
+            sniff_filter
+                .map(|s| format!(" (sniff: {})", s))
+                .unwrap_or_default()
+        );
 
         let phpcbf_path = self.get_phpcbf_path();
 
         let mut cmd = build_tool_command(&phpcbf_path);
-        cmd.arg("--no-colors")
-           .arg("-q");
+        cmd.arg("--no-colors").arg("-q");
 
         // Add standard if configured
         if let Ok(standard_guard) = self.standard.read() {
             if let Some(ref standard) = *standard_guard {
-                if !((standard.starts_with('/') || standard.starts_with("./") || standard.ends_with(".xml"))
-                    && !std::path::Path::new(standard).exists()) {
+                if !((standard.starts_with('/')
+                    || standard.starts_with("./")
+                    || standard.ends_with(".xml"))
+                    && !std::path::Path::new(standard).exists())
+                {
                     eprintln!("📏 PHPCS LSP: phpcbf using standard: {}", standard);
                     cmd.arg(format!("--standard={}", standard));
                 }
@@ -280,23 +285,27 @@ impl PhpcsLanguageServer {
         cmd.arg("-");
 
         cmd.stdin(std::process::Stdio::piped())
-           .stdout(std::process::Stdio::piped())
-           .stderr(std::process::Stdio::piped())
-           .kill_on_drop(true);
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
 
-        let mut child = cmd.spawn()
+        let mut child = cmd
+            .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to spawn phpcbf: {}", e))?;
 
         // Write content to stdin
         if let Some(mut stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt;
-            stdin.write_all(content.as_bytes()).await
+            stdin
+                .write_all(content.as_bytes())
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to write to phpcbf stdin: {}", e))?;
             drop(stdin);
         }
 
         // Wait for output with timeout
-        let output = timeout(Duration::from_secs(30), child.wait_with_output()).await
+        let output = timeout(Duration::from_secs(30), child.wait_with_output())
+            .await
             .map_err(|_| anyhow::anyhow!("phpcbf timeout"))?
             .map_err(|e| anyhow::anyhow!("phpcbf error: {}", e))?;
 
@@ -308,14 +317,24 @@ impl PhpcsLanguageServer {
         let exit_code = output.status.code().unwrap_or(-1);
         let stderr = String::from_utf8_lossy(&output.stderr);
         if exit_code > 2 {
-            eprintln!("❌ PHPCS LSP: phpcbf error (exit {}): {}", exit_code, stderr);
-            return Err(anyhow::anyhow!("phpcbf failed with exit code {}: {}", exit_code, stderr));
+            eprintln!(
+                "❌ PHPCS LSP: phpcbf error (exit {}): {}",
+                exit_code, stderr
+            );
+            return Err(anyhow::anyhow!(
+                "phpcbf failed with exit code {}: {}",
+                exit_code,
+                stderr
+            ));
         }
 
         let fixed_content = String::from_utf8(output.stdout)
             .map_err(|e| anyhow::anyhow!("Invalid UTF-8 from phpcbf: {}", e))?;
 
-        eprintln!("✅ PHPCS LSP: phpcbf completed for {} (exit code {})", file_name, exit_code);
+        eprintln!(
+            "✅ PHPCS LSP: phpcbf completed for {} (exit code {})",
+            file_name, exit_code
+        );
         Ok(fixed_content)
     }
 
@@ -348,7 +367,10 @@ impl PhpcsLanguageServer {
                 // Check if this change affects our target lines
                 if line_num >= target_start_line && line_num <= target_end_line {
                     // Create an edit for this specific line
-                    let start = Position { line: line_num, character: 0 };
+                    let start = Position {
+                        line: line_num,
+                        character: 0,
+                    };
                     let end = Position {
                         line: line_num,
                         character: orig_line.map(|l| l.len() as u32).unwrap_or(0),
@@ -401,18 +423,27 @@ impl PhpcsLanguageServer {
         }
     }
 
-    async fn run_phpcs(&self, uri: &Url, _file_path: &str, content: Option<&str>) -> Result<Vec<Diagnostic>> {
+    async fn run_phpcs(
+        &self,
+        uri: &Url,
+        _file_path: &str,
+        content: Option<&str>,
+    ) -> Result<Vec<Diagnostic>> {
         let start_time = Instant::now();
-        let file_name = uri.path_segments()
+        let file_name = uri
+            .path_segments()
             .and_then(|mut segments| segments.next_back())
             .unwrap_or("unknown");
 
         eprintln!("🔍 PHPCS LSP: Starting lint for file: {}", file_name);
-        
+
         // Acquire semaphore permit to limit concurrent PHPCS processes
-        let _permit = self.process_semaphore.acquire().await
+        let _permit = self
+            .process_semaphore
+            .acquire()
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to acquire process semaphore: {}", e))?;
-        
+
         // Use cached PHPCS path
         let phpcs_path = self.get_phpcs_path();
 
@@ -424,15 +455,17 @@ impl PhpcsLanguageServer {
 
         let text = content.unwrap();
         let mut cmd = build_tool_command(&phpcs_path);
-        cmd.arg("--report=json")
-           .arg("--no-colors")
-           .arg("-q");
+        cmd.arg("--report=json").arg("--no-colors").arg("-q");
 
         // Only add standard if explicitly configured and file still exists
         let standard_info = if let Ok(standard_guard) = self.standard.read() {
             if let Some(ref standard) = *standard_guard {
                 // Check if it's a file path and validate it exists
-                if (standard.starts_with('/') || standard.starts_with("./") || standard.ends_with(".xml")) && !std::path::Path::new(standard).exists() {
+                if (standard.starts_with('/')
+                    || standard.starts_with("./")
+                    || standard.ends_with(".xml"))
+                    && !std::path::Path::new(standard).exists()
+                {
                     eprintln!("⚠️ PHPCS LSP: Config file no longer exists: {}", standard);
                     eprintln!("🔄 PHPCS LSP: Re-discovering standard...");
 
@@ -452,7 +485,7 @@ impl PhpcsLanguageServer {
                 } else {
                     eprintln!("⚙️ PHPCS LSP: Using configured standard: {}", standard);
                     cmd.arg(format!("--standard={}", standard));
-                    format!(" with standard '{}'" , standard)
+                    format!(" with standard '{}'", standard)
                 }
             } else {
                 eprintln!("🎯 PHPCS LSP: Using PHPCS default standard (no --standard flag)");
@@ -472,16 +505,22 @@ impl PhpcsLanguageServer {
         };
         cmd.arg("-");
 
-        eprintln!("🚀 PHPCS LSP: Running PHPCS on {}{}{}", file_name, standard_info, stdin_path_info);
+        eprintln!(
+            "🚀 PHPCS LSP: Running PHPCS on {}{}{}",
+            file_name, standard_info, stdin_path_info
+        );
         cmd.stdin(std::process::Stdio::piped())
-           .stdout(std::process::Stdio::piped())
-           .stderr(std::process::Stdio::piped())
-           .kill_on_drop(true);  // Ensure process is killed if dropped
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true); // Ensure process is killed if dropped
 
         let mut child = match cmd.spawn() {
             Ok(child) => child,
             Err(e) => {
-                eprintln!("❌ PHPCS LSP: Failed to spawn PHPCS for {}: {}", file_name, e);
+                eprintln!(
+                    "❌ PHPCS LSP: Failed to spawn PHPCS for {}: {}",
+                    file_name, e
+                );
                 return Err(anyhow::anyhow!("PHPCS error: {}", e));
             }
         };
@@ -494,16 +533,30 @@ impl PhpcsLanguageServer {
                     drop(stdin); // Close stdin to signal EOF
                 }
                 Ok(Err(e)) => {
-                    eprintln!("⚠️ PHPCS LSP: Failed to write {} bytes to stdin for {}: {}", 
-                        text.len(), file_name, e);
+                    eprintln!(
+                        "⚠️ PHPCS LSP: Failed to write {} bytes to stdin for {}: {}",
+                        text.len(),
+                        file_name,
+                        e
+                    );
                     child.kill().await.ok();
-                    return Err(anyhow::anyhow!("Failed to send content to PHPCS for {}: {}", file_name, e));
+                    return Err(anyhow::anyhow!(
+                        "Failed to send content to PHPCS for {}: {}",
+                        file_name,
+                        e
+                    ));
                 }
                 Err(_) => {
-                    eprintln!("⏱️ PHPCS LSP: Timeout writing {} bytes to PHPCS stdin for {} (>5s)", 
-                        text.len(), file_name);
+                    eprintln!(
+                        "⏱️ PHPCS LSP: Timeout writing {} bytes to PHPCS stdin for {} (>5s)",
+                        text.len(),
+                        file_name
+                    );
                     child.kill().await.ok();
-                    return Err(anyhow::anyhow!("Timeout writing to PHPCS for {} after 5 seconds", file_name));
+                    return Err(anyhow::anyhow!(
+                        "Timeout writing to PHPCS for {} after 5 seconds",
+                        file_name
+                    ));
                 }
             }
         }
@@ -512,40 +565,69 @@ impl PhpcsLanguageServer {
         let output = match timeout(Duration::from_secs(10), child.wait_with_output()).await {
             Ok(Ok(output)) => {
                 let elapsed = start_time.elapsed();
-                eprintln!("⚡ PHPCS LSP: Process completed for {} in {:.2}s", 
-                    file_name, elapsed.as_secs_f64());
+                eprintln!(
+                    "⚡ PHPCS LSP: Process completed for {} in {:.2}s",
+                    file_name,
+                    elapsed.as_secs_f64()
+                );
                 output
             }
             Ok(Err(e)) => {
                 let elapsed = start_time.elapsed();
-                eprintln!("❌ PHPCS LSP: PHPCS process error for {} after {:.2}s: {}", 
-                    file_name, elapsed.as_secs_f64(), e);
-                return Err(anyhow::anyhow!("PHPCS process error for {}: {}", file_name, e));
+                eprintln!(
+                    "❌ PHPCS LSP: PHPCS process error for {} after {:.2}s: {}",
+                    file_name,
+                    elapsed.as_secs_f64(),
+                    e
+                );
+                return Err(anyhow::anyhow!(
+                    "PHPCS process error for {}: {}",
+                    file_name,
+                    e
+                ));
             }
             Err(_) => {
-                eprintln!("⏱️ PHPCS LSP: PHPCS timeout for {} (>10s) with {} bytes of content", 
-                    file_name, text.len());
+                eprintln!(
+                    "⏱️ PHPCS LSP: PHPCS timeout for {} (>10s) with {} bytes of content",
+                    file_name,
+                    text.len()
+                );
                 // Process will be killed automatically due to kill_on_drop(true)
-                return Err(anyhow::anyhow!("PHPCS execution timeout for {} after 10 seconds", file_name));
+                return Err(anyhow::anyhow!(
+                    "PHPCS execution timeout for {} after 10 seconds",
+                    file_name
+                ));
             }
         };
         let raw_output = String::from_utf8_lossy(&output.stdout);
-        
+
         // Permit is automatically released when it goes out of scope
         drop(_permit);
-        
+
         let diagnostics = self.parse_phpcs_output(&raw_output, uri).await?;
 
         // Log results with timing
         let total_time = start_time.elapsed();
         let issue_count = diagnostics.len();
         if issue_count == 0 {
-            eprintln!("✅ PHPCS LSP: {} is clean! No issues found (took {:.2}s)", 
-                file_name, total_time.as_secs_f64());
+            eprintln!(
+                "✅ PHPCS LSP: {} is clean! No issues found (took {:.2}s)",
+                file_name,
+                total_time.as_secs_f64()
+            );
         } else {
-            let errors = diagnostics.iter().filter(|d| d.severity == Some(DiagnosticSeverity::ERROR)).count();
-            let warnings = diagnostics.iter().filter(|d| d.severity == Some(DiagnosticSeverity::WARNING)).count();
-            let infos = diagnostics.iter().filter(|d| d.severity == Some(DiagnosticSeverity::INFORMATION)).count();
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d.severity == Some(DiagnosticSeverity::ERROR))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d.severity == Some(DiagnosticSeverity::WARNING))
+                .count();
+            let infos = diagnostics
+                .iter()
+                .filter(|d| d.severity == Some(DiagnosticSeverity::INFORMATION))
+                .count();
 
             eprintln!("📊 PHPCS LSP: {} issues found in {}: {} errors, {} warnings, {} info (took {:.2}s)",
                 issue_count, file_name, errors, warnings, infos, total_time.as_secs_f64());
@@ -571,7 +653,9 @@ impl PhpcsLanguageServer {
             for (_, file_data) in files {
                 if let Some(messages) = file_data.get("messages").and_then(|m| m.as_array()) {
                     for message in messages {
-                        if let Some(diagnostic) = self.convert_message_to_diagnostic(message, uri).await {
+                        if let Some(diagnostic) =
+                            self.convert_message_to_diagnostic(message, uri).await
+                        {
                             diagnostics.push(diagnostic);
                         }
                     }
@@ -582,7 +666,11 @@ impl PhpcsLanguageServer {
         Ok(diagnostics)
     }
 
-    async fn convert_message_to_diagnostic(&self, message: &serde_json::Value, uri: &Url) -> Option<Diagnostic> {
+    async fn convert_message_to_diagnostic(
+        &self,
+        message: &serde_json::Value,
+        uri: &Url,
+    ) -> Option<Diagnostic> {
         let line = message.get("line")?.as_u64()? as u32;
         let column = message.get("column")?.as_u64()? as u32;
         let msg = message.get("message")?.as_str()?;
@@ -601,23 +689,23 @@ impl PhpcsLanguageServer {
         let column = if column > 0 { column - 1 } else { 0 };
 
         // Determine if this is a line-level or tag-level issue
-        let is_line_level = msg.contains("Line exceeds") ||
-                           msg.contains("line is too long") ||
-                           msg.contains("Whitespace found at end of line") ||
-                           msg.contains("Line indented incorrectly") ||
-                           msg.contains("separated by a single blank line") ||
-                           msg.contains("blocks must be separated") ||
-                           source.contains("Generic.Files.LineLength") ||
-                           source.contains("Generic.WhiteSpace.DisallowTabIndent") ||
-                           source.contains("Squiz.WhiteSpace.SuperfluousWhitespace") ||
-                           source.contains("PSR12.Files.FileHeader.SpacingAfterBlock");
+        let is_line_level = msg.contains("Line exceeds")
+            || msg.contains("line is too long")
+            || msg.contains("Whitespace found at end of line")
+            || msg.contains("Line indented incorrectly")
+            || msg.contains("separated by a single blank line")
+            || msg.contains("blocks must be separated")
+            || source.contains("Generic.Files.LineLength")
+            || source.contains("Generic.WhiteSpace.DisallowTabIndent")
+            || source.contains("Squiz.WhiteSpace.SuperfluousWhitespace")
+            || source.contains("PSR12.Files.FileHeader.SpacingAfterBlock");
 
-        let is_tag_level = msg.contains("closing tag") ||
-                          msg.contains("Opening PHP tag") ||
-                          msg.contains("<?php") ||
-                          msg.contains("?>") ||
-                          source.contains("PSR2.Files.ClosingTag") ||
-                          source.contains("PSR12.Files.OpenTag");
+        let is_tag_level = msg.contains("closing tag")
+            || msg.contains("Opening PHP tag")
+            || msg.contains("<?php")
+            || msg.contains("?>")
+            || source.contains("PSR2.Files.ClosingTag")
+            || source.contains("PSR12.Files.OpenTag");
 
         // Get the line content from the stored document
         let range = if let Ok(docs) = self.open_docs.read() {
@@ -625,48 +713,80 @@ impl PhpcsLanguageServer {
                 // Decompress to get line content
                 if let Ok(content) = self.decompress_document(compressed_doc) {
                     if let Some(line_content) = content.lines().nth(line as usize) {
-                    if is_line_level {
-                        // Underline from first non-whitespace character to end of line
-                        let first_non_whitespace = line_content.chars()
-                            .position(|c| !c.is_whitespace())
-                            .unwrap_or(0) as u32;
-                        Range {
-                            start: Position { line, character: first_non_whitespace },
-                            end: Position { line, character: line_content.len() as u32 },
+                        if is_line_level {
+                            // Underline from first non-whitespace character to end of line
+                            let first_non_whitespace = line_content
+                                .chars()
+                                .position(|c| !c.is_whitespace())
+                                .unwrap_or(0)
+                                as u32;
+                            Range {
+                                start: Position {
+                                    line,
+                                    character: first_non_whitespace,
+                                },
+                                end: Position {
+                                    line,
+                                    character: line_content.len() as u32,
+                                },
+                            }
+                        } else if is_tag_level {
+                            // Find and underline the PHP tag
+                            self.find_tag_range(line_content, line, column)
+                        } else {
+                            // Normal token-based underlining
+                            self.find_token_range(line_content, line, column)
                         }
-                    } else if is_tag_level {
-                        // Find and underline the PHP tag
-                        self.find_tag_range(line_content, line, column)
-                    } else {
-                        // Normal token-based underlining
-                        self.find_token_range(line_content, line, column)
-                    }
                     } else {
                         // Fallback if line not found
                         Range {
-                            start: Position { line, character: column },
-                            end: Position { line, character: column + 1 },
+                            start: Position {
+                                line,
+                                character: column,
+                            },
+                            end: Position {
+                                line,
+                                character: column + 1,
+                            },
                         }
                     }
                 } else {
                     // Fallback if decompression fails
                     Range {
-                        start: Position { line, character: column },
-                        end: Position { line, character: column + 1 },
+                        start: Position {
+                            line,
+                            character: column,
+                        },
+                        end: Position {
+                            line,
+                            character: column + 1,
+                        },
                     }
                 }
             } else {
                 // Fallback if no document content
                 Range {
-                    start: Position { line, character: column },
-                    end: Position { line, character: column + 1 },
+                    start: Position {
+                        line,
+                        character: column,
+                    },
+                    end: Position {
+                        line,
+                        character: column + 1,
+                    },
                 }
             }
         } else {
             // Fallback if lock fails
             Range {
-                start: Position { line, character: column },
-                end: Position { line, character: column + 1 },
+                start: Position {
+                    line,
+                    character: column,
+                },
+                end: Position {
+                    line,
+                    character: column + 1,
+                },
             }
         };
 
@@ -681,8 +801,7 @@ impl PhpcsLanguageServer {
         };
 
         // Generate documentation URL for the sniff
-        let code_description = generate_phpcs_doc_url(source)
-            .map(|href| CodeDescription { href });
+        let code_description = generate_phpcs_doc_url(source).map(|href| CodeDescription { href });
 
         // Extract related information for context
         let related_information = self.extract_related_information(msg, uri, line);
@@ -717,7 +836,12 @@ impl PhpcsLanguageServer {
     /// - Opening/closing brace mismatches
     /// - Expected vs found comparisons
     /// - Duplicate declarations
-    fn extract_related_information(&self, msg: &str, uri: &Url, _current_line: u32) -> Option<Vec<DiagnosticRelatedInformation>> {
+    fn extract_related_information(
+        &self,
+        msg: &str,
+        uri: &Url,
+        _current_line: u32,
+    ) -> Option<Vec<DiagnosticRelatedInformation>> {
         let mut related = Vec::new();
 
         // Pattern: "Opening brace" / "Closing brace" errors - provide context
@@ -764,7 +888,11 @@ impl PhpcsLanguageServer {
 
         // Check for opening tag "<?php"
         if let Some(pos) = line_content.find("<?php") {
-            let distance = if col >= pos && col <= pos + 5 { 0 } else { col.abs_diff(pos) };
+            let distance = if col >= pos && col <= pos + 5 {
+                0
+            } else {
+                col.abs_diff(pos)
+            };
             if best_match.is_none() || distance <= col.abs_diff(best_match.unwrap().0) {
                 best_match = Some((pos, pos + 5));
             }
@@ -772,7 +900,11 @@ impl PhpcsLanguageServer {
 
         // Check for closing tag "?>"
         if let Some(pos) = line_content.find("?>") {
-            let distance = if col >= pos && col <= pos + 2 { 0 } else { col.abs_diff(pos) };
+            let distance = if col >= pos && col <= pos + 2 {
+                0
+            } else {
+                col.abs_diff(pos)
+            };
             if best_match.is_none() || distance < col.abs_diff(best_match.unwrap().0) {
                 best_match = Some((pos, pos + 2));
             }
@@ -784,25 +916,43 @@ impl PhpcsLanguageServer {
             let actual_pos = search_pos + pos;
             // Make sure it's not part of "<?php"
             if !line_content[actual_pos..].starts_with("<?php") {
-                let distance = if col >= actual_pos && col <= actual_pos + 2 { 0 } else { col.abs_diff(actual_pos) };
+                let distance = if col >= actual_pos && col <= actual_pos + 2 {
+                    0
+                } else {
+                    col.abs_diff(actual_pos)
+                };
                 if best_match.is_none() || distance < col.abs_diff(best_match.unwrap().0) {
                     best_match = Some((actual_pos, actual_pos + 2));
                 }
             }
             search_pos = actual_pos + 2;
-            if search_pos >= line_content.len() { break; }
+            if search_pos >= line_content.len() {
+                break;
+            }
         }
 
         if let Some((start, end)) = best_match {
             Range {
-                start: Position { line, character: start as u32 },
-                end: Position { line, character: end as u32 },
+                start: Position {
+                    line,
+                    character: start as u32,
+                },
+                end: Position {
+                    line,
+                    character: end as u32,
+                },
             }
         } else {
             // If no tag found, underline from column position with a reasonable default
             Range {
-                start: Position { line, character: column },
-                end: Position { line, character: column.saturating_add(2) },
+                start: Position {
+                    line,
+                    character: column,
+                },
+                end: Position {
+                    line,
+                    character: column.saturating_add(2),
+                },
             }
         }
     }
@@ -814,8 +964,14 @@ impl PhpcsLanguageServer {
         // If column is beyond line length, use end of line
         if col >= chars.len() {
             return Range {
-                start: Position { line, character: column.saturating_sub(1) },
-                end: Position { line, character: column },
+                start: Position {
+                    line,
+                    character: column.saturating_sub(1),
+                },
+                end: Position {
+                    line,
+                    character: column,
+                },
             };
         }
 
@@ -828,7 +984,11 @@ impl PhpcsLanguageServer {
 
         if ch.is_alphanumeric() || ch == '_' || ch == '$' {
             // Identifier or variable token
-            while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_' || chars[start - 1] == '$') {
+            while start > 0
+                && (chars[start - 1].is_alphanumeric()
+                    || chars[start - 1] == '_'
+                    || chars[start - 1] == '$')
+            {
                 start -= 1;
             }
             while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
@@ -841,7 +1001,9 @@ impl PhpcsLanguageServer {
             }
         } else {
             // Operator or punctuation
-            let operator_chars = ['=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '~'];
+            let operator_chars = [
+                '=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '~',
+            ];
             if operator_chars.contains(&ch) {
                 // Check for multi-character operators
                 while end < chars.len() && operator_chars.contains(&chars[end]) {
@@ -863,8 +1025,14 @@ impl PhpcsLanguageServer {
         }
 
         Range {
-            start: Position { line, character: start as u32 },
-            end: Position { line, character: end as u32 },
+            start: Position {
+                line,
+                character: start as u32,
+            },
+            end: Position {
+                line,
+                character: end as u32,
+            },
         }
     }
 }
@@ -876,7 +1044,8 @@ impl LanguageServer for PhpcsLanguageServer {
         eprintln!("🔧 PHPCS LSP: Client info: {:?}", params.client_info);
 
         // Determine workspace root for config file lookup
-        let workspace_root = params.root_uri
+        let workspace_root = params
+            .root_uri
             .as_ref()
             .and_then(|uri| uri.to_file_path().ok());
 
@@ -906,21 +1075,30 @@ impl LanguageServer for PhpcsLanguageServer {
                     }
 
                     if let Some(phpcs_path) = init_options.phpcs_path {
-                        eprintln!("🎯 PHPCS LSP: Extension provided phpcsPath: '{}'", phpcs_path);
+                        eprintln!(
+                            "🎯 PHPCS LSP: Extension provided phpcsPath: '{}'",
+                            phpcs_path
+                        );
                         if let Ok(mut path_guard) = self.user_phpcs_path.write() {
                             *path_guard = Some(phpcs_path.clone());
                         }
                     }
 
                     if let Some(phpcbf_path) = init_options.phpcbf_path {
-                        eprintln!("🎯 PHPCS LSP: Extension provided phpcbfPath: '{}'", phpcbf_path);
+                        eprintln!(
+                            "🎯 PHPCS LSP: Extension provided phpcbfPath: '{}'",
+                            phpcbf_path
+                        );
                         if let Ok(mut path_guard) = self.user_phpcbf_path.write() {
                             *path_guard = Some(phpcbf_path.clone());
                         }
                     }
-                },
+                }
                 Err(e) => {
-                    eprintln!("❌ PHPCS LSP: Failed to parse initialization options: {}", e);
+                    eprintln!(
+                        "❌ PHPCS LSP: Failed to parse initialization options: {}",
+                        e
+                    );
                 }
             }
         } else {
@@ -931,8 +1109,12 @@ impl LanguageServer for PhpcsLanguageServer {
         // Log final initialization state
         if let Ok(standard_guard) = self.standard.read() {
             match &*standard_guard {
-                Some(standard) => eprintln!("🎯 PHPCS LSP: Initialized with standard: '{}'", standard),
-                None => eprintln!("🎯 PHPCS LSP: Initialized with no explicit standard (PHPCS defaults)"),
+                Some(standard) => {
+                    eprintln!("🎯 PHPCS LSP: Initialized with standard: '{}'", standard)
+                }
+                None => eprintln!(
+                    "🎯 PHPCS LSP: Initialized with no explicit standard (PHPCS defaults)"
+                ),
             }
         }
 
@@ -1007,7 +1189,8 @@ impl LanguageServer for PhpcsLanguageServer {
         if let Ok(mut docs) = self.open_docs.write() {
             if let Some(doc) = docs.remove(&uri) {
                 let freed_memory = doc.compressed_data.len();
-                self.total_memory_usage.fetch_sub(freed_memory, Ordering::Relaxed);
+                self.total_memory_usage
+                    .fetch_sub(freed_memory, Ordering::Relaxed);
             }
         }
 
@@ -1032,7 +1215,9 @@ impl LanguageServer for PhpcsLanguageServer {
             cache.clear();
         }
 
-        eprintln!("🔄 PHPCS LSP: Workspace changed, cleared auto-detection cache (keeping user paths)");
+        eprintln!(
+            "🔄 PHPCS LSP: Workspace changed, cleared auto-detection cache (keeping user paths)"
+        );
 
         // Re-detect PHPCS configuration for new workspace
         // This will be done lazily on next PHPCS run
@@ -1042,24 +1227,32 @@ impl LanguageServer for PhpcsLanguageServer {
         eprintln!("🔄 PHPCS LSP: Configuration change detected!");
 
         let mut path_changed = false;
-        
+
         // Parse the settings
         if let Some(settings) = params.settings.as_object() {
             // Look for phpcs settings
             if let Some(phpcs_settings) = settings.get("phpcs") {
                 // Try to parse as PhpcsSettings
-                if let Ok(parsed_settings) = serde_json::from_value::<PhpcsSettings>(phpcs_settings.clone()) {
+                if let Ok(parsed_settings) =
+                    serde_json::from_value::<PhpcsSettings>(phpcs_settings.clone())
+                {
                     // Update the standard if provided
                     if let Some(new_standard) = parsed_settings.standard {
-                        eprintln!("⚙️ PHPCS LSP: Runtime config change - standard: '{}'", new_standard);
+                        eprintln!(
+                            "⚙️ PHPCS LSP: Runtime config change - standard: '{}'",
+                            new_standard
+                        );
                         if let Ok(mut standard_guard) = self.standard.write() {
                             *standard_guard = Some(new_standard);
                         }
                     }
-                    
+
                     // Update custom PHPCS path if provided
                     if let Some(new_phpcs_path) = parsed_settings.phpcs_path {
-                        eprintln!("📂 PHPCS LSP: Runtime config change - phpcs_path: '{}'", new_phpcs_path);
+                        eprintln!(
+                            "📂 PHPCS LSP: Runtime config change - phpcs_path: '{}'",
+                            new_phpcs_path
+                        );
                         if let Ok(mut path_guard) = self.user_phpcs_path.write() {
                             let old_path = path_guard.clone();
                             *path_guard = Some(new_phpcs_path.clone());
@@ -1068,10 +1261,13 @@ impl LanguageServer for PhpcsLanguageServer {
                             }
                         }
                     }
-                    
+
                     // Update custom PHPCBF path if provided
                     if let Some(new_phpcbf_path) = parsed_settings.phpcbf_path {
-                        eprintln!("📂 PHPCS LSP: Runtime config change - phpcbf_path: '{}'", new_phpcbf_path);
+                        eprintln!(
+                            "📂 PHPCS LSP: Runtime config change - phpcbf_path: '{}'",
+                            new_phpcbf_path
+                        );
                         if let Ok(mut path_guard) = self.user_phpcbf_path.write() {
                             *path_guard = Some(new_phpcbf_path);
                             path_changed = true; // Always clear cache when phpcbf path changes
@@ -1088,10 +1284,13 @@ impl LanguageServer for PhpcsLanguageServer {
                     }
                 }
             }
-            
+
             if let Some(phpcs_path_value) = settings.get("phpcs_path") {
                 if let Some(new_phpcs_path) = phpcs_path_value.as_str() {
-                    eprintln!("📂 PHPCS LSP: Runtime config change (compat) - phpcs_path: '{}'", new_phpcs_path);
+                    eprintln!(
+                        "📂 PHPCS LSP: Runtime config change (compat) - phpcs_path: '{}'",
+                        new_phpcs_path
+                    );
                     if let Ok(mut path_guard) = self.user_phpcs_path.write() {
                         let old_path = path_guard.clone();
                         *path_guard = Some(new_phpcs_path.to_string());
@@ -1101,10 +1300,13 @@ impl LanguageServer for PhpcsLanguageServer {
                     }
                 }
             }
-            
+
             if let Some(phpcbf_path_value) = settings.get("phpcbf_path") {
                 if let Some(new_phpcbf_path) = phpcbf_path_value.as_str() {
-                    eprintln!("📂 PHPCS LSP: Runtime config change (compat) - phpcbf_path: '{}'", new_phpcbf_path);
+                    eprintln!(
+                        "📂 PHPCS LSP: Runtime config change (compat) - phpcbf_path: '{}'",
+                        new_phpcbf_path
+                    );
                     if let Ok(mut path_guard) = self.user_phpcbf_path.write() {
                         *path_guard = Some(new_phpcbf_path.to_string());
                         path_changed = true;
@@ -1141,7 +1343,6 @@ impl LanguageServer for PhpcsLanguageServer {
         {
             let mut docs = self.open_docs.write().unwrap();
             docs.insert(uri.clone(), compressed_doc);
-
         }
 
         // Invalidate any cached results for this file
@@ -1192,7 +1393,8 @@ impl LanguageServer for PhpcsLanguageServer {
         params: DocumentDiagnosticParams,
     ) -> LspResult<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
-        let file_name = uri.path_segments()
+        let file_name = uri
+            .path_segments()
             .and_then(|mut segments| segments.next_back())
             .unwrap_or("unknown");
 
@@ -1205,12 +1407,15 @@ impl LanguageServer for PhpcsLanguageServer {
                         if let Some(previous_result_id) = params.previous_result_id {
                             if previous_result_id == cached.result_id {
                                 return Ok(DocumentDiagnosticReportResult::Report(
-                                    DocumentDiagnosticReport::Unchanged(RelatedUnchangedDocumentDiagnosticReport {
-                                        unchanged_document_diagnostic_report: UnchangedDocumentDiagnosticReport {
-                                            result_id: cached.result_id.clone(),
+                                    DocumentDiagnosticReport::Unchanged(
+                                        RelatedUnchangedDocumentDiagnosticReport {
+                                            unchanged_document_diagnostic_report:
+                                                UnchangedDocumentDiagnosticReport {
+                                                    result_id: cached.result_id.clone(),
+                                                },
+                                            related_documents: None,
                                         },
-                                        related_documents: None,
-                                    }),
+                                    ),
                                 ));
                             }
                         }
@@ -1239,7 +1444,10 @@ impl LanguageServer for PhpcsLanguageServer {
                     // Try to read from disk as fallback
                     match fs::read_to_string(path_str) {
                         Ok(file_content) => {
-                            eprintln!("⚠️ PHPCS LSP: Document not in memory, reading from disk: {}", file_name);
+                            eprintln!(
+                                "⚠️ PHPCS LSP: Document not in memory, reading from disk: {}",
+                                file_name
+                            );
                             let compressed = self.compress_document(&file_content);
                             let mut docs = self.open_docs.write().unwrap();
                             docs.insert(uri.clone(), compressed.clone());
@@ -1261,24 +1469,34 @@ impl LanguageServer for PhpcsLanguageServer {
                         Err(e) => {
                             eprintln!("❌ PHPCS LSP: Failed to decompress {}: {}", file_name, e);
                             return Ok(DocumentDiagnosticReportResult::Report(
-                                DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
-                                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                                        result_id: None,
-                                        items: vec![],
+                                DocumentDiagnosticReport::Full(
+                                    RelatedFullDocumentDiagnosticReport {
+                                        full_document_diagnostic_report:
+                                            FullDocumentDiagnosticReport {
+                                                result_id: None,
+                                                items: vec![],
+                                            },
+                                        related_documents: None,
                                     },
-                                    related_documents: None,
-                                }),
+                                ),
                             ));
                         }
                     };
 
                     let version_id = compressed_doc.checksum.clone();
-                    eprintln!("📋 PHPCS LSP: Running PHPCS for {} with version: {}", file_name, &version_id[..16]);
+                    eprintln!(
+                        "📋 PHPCS LSP: Running PHPCS for {} with version: {}",
+                        file_name,
+                        &version_id[..16]
+                    );
 
                     // Run PHPCS
                     if let Ok(diagnostics) = self.run_phpcs(&uri, path_str, Some(&content)).await {
-                        eprintln!("📊 PHPCS LSP: Generated {} diagnostics for {}",
-                            diagnostics.len(), file_name);
+                        eprintln!(
+                            "📊 PHPCS LSP: Generated {} diagnostics for {}",
+                            diagnostics.len(),
+                            file_name
+                        );
 
                         // Cache the results
                         let cached_results = CachedResults {
@@ -1305,7 +1523,10 @@ impl LanguageServer for PhpcsLanguageServer {
         }
 
         // Fallback: return empty diagnostics with no version
-        eprintln!("⚠️ PHPCS LSP: Unable to generate diagnostics for {}", file_name);
+        eprintln!(
+            "⚠️ PHPCS LSP: Unable to generate diagnostics for {}",
+            file_name
+        );
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
@@ -1317,12 +1538,10 @@ impl LanguageServer for PhpcsLanguageServer {
         ))
     }
 
-    async fn code_action(
-        &self,
-        params: CodeActionParams,
-    ) -> LspResult<Option<CodeActionResponse>> {
+    async fn code_action(&self, params: CodeActionParams) -> LspResult<Option<CodeActionResponse>> {
         let uri = params.text_document.uri;
-        let file_name = uri.path_segments()
+        let file_name = uri
+            .path_segments()
             .and_then(|mut segments| segments.next_back())
             .unwrap_or("unknown");
 
@@ -1337,9 +1556,10 @@ impl LanguageServer for PhpcsLanguageServer {
 
         // Get the document content first
         let content = {
-            let docs = self.open_docs.read().map_err(|_| {
-                tower_lsp::jsonrpc::Error::internal_error()
-            })?;
+            let docs = self
+                .open_docs
+                .read()
+                .map_err(|_| tower_lsp::jsonrpc::Error::internal_error())?;
 
             if let Some(compressed_doc) = docs.get(&uri) {
                 self.decompress_document(compressed_doc).ok()
@@ -1355,7 +1575,10 @@ impl LanguageServer for PhpcsLanguageServer {
 
         // Handle source.fixAll.phpcs requests (from code_actions_on_format)
         if is_fix_all_request {
-            eprintln!("🔧 PHPCS LSP: source.fixAll.phpcs requested for {}", file_name);
+            eprintln!(
+                "🔧 PHPCS LSP: source.fixAll.phpcs requested for {}",
+                file_name
+            );
 
             // Deduplicate: after returning a fixAll edit, skip all requests for this URI
             // for a cooldown period to prevent multiple conflicting edits
@@ -1385,8 +1608,14 @@ impl LanguageServer for PhpcsLanguageServer {
 
                     let edit = TextEdit {
                         range: Range {
-                            start: Position { line: 0, character: 0 },
-                            end: Position { line: line_count, character: last_line_len },
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: line_count,
+                                character: last_line_len,
+                            },
                         },
                         new_text: fixed_content,
                     };
@@ -1411,11 +1640,17 @@ impl LanguageServer for PhpcsLanguageServer {
                         data: None,
                     });
 
-                    eprintln!("✅ PHPCS LSP: Returning source.fixAll.phpcs action for {}", file_name);
+                    eprintln!(
+                        "✅ PHPCS LSP: Returning source.fixAll.phpcs action for {}",
+                        file_name
+                    );
                     return Ok(Some(vec![action]));
                 }
                 Err(e) => {
-                    eprintln!("❌ PHPCS LSP: source.fixAll.phpcs failed for {}: {}", file_name, e);
+                    eprintln!(
+                        "❌ PHPCS LSP: source.fixAll.phpcs failed for {}: {}",
+                        file_name, e
+                    );
                     return Ok(Some(vec![]));
                 }
             }
@@ -1423,13 +1658,15 @@ impl LanguageServer for PhpcsLanguageServer {
 
         // Check if any diagnostics in the ENTIRE file are fixable
         let file_has_fixable = {
-            let cache = self.results_cache.read().map_err(|_| {
-                tower_lsp::jsonrpc::Error::internal_error()
-            })?;
+            let cache = self
+                .results_cache
+                .read()
+                .map_err(|_| tower_lsp::jsonrpc::Error::internal_error())?;
 
             if let Some(cached) = cache.get(&uri) {
                 cached.diagnostics.iter().any(|diag| {
-                    diag.data.as_ref()
+                    diag.data
+                        .as_ref()
                         .and_then(|d| d.get("fixable"))
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false)
@@ -1446,13 +1683,18 @@ impl LanguageServer for PhpcsLanguageServer {
         let mut code_actions: Vec<CodeActionOrCommand> = Vec::new();
 
         // Collect fixable diagnostics at cursor position
-        let fixable_at_cursor: Vec<_> = params.context.diagnostics.iter()
+        let fixable_at_cursor: Vec<_> = params
+            .context
+            .diagnostics
+            .iter()
             .filter(|diag| {
-                diag.source.as_deref() == Some("phpcs") &&
-                diag.data.as_ref()
-                    .and_then(|d| d.get("fixable"))
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false)
+                diag.source.as_deref() == Some("phpcs")
+                    && diag
+                        .data
+                        .as_ref()
+                        .and_then(|d| d.get("fixable"))
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
             })
             .collect();
 
@@ -1526,8 +1768,14 @@ impl LanguageServer for PhpcsLanguageServer {
 
                     let edit = TextEdit {
                         range: Range {
-                            start: Position { line: 0, character: 0 },
-                            end: Position { line: line_count, character: last_line_len },
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: line_count,
+                                character: last_line_len,
+                            },
                         },
                         new_text: fixed_content,
                     };
@@ -1566,8 +1814,14 @@ impl LanguageServer for PhpcsLanguageServer {
 
                 let edit = TextEdit {
                     range: Range {
-                        start: Position { line: 0, character: 0 },
-                        end: Position { line: line_count, character: last_line_len },
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: line_count,
+                            character: last_line_len,
+                        },
                     },
                     new_text: fixed_content,
                 };
@@ -1594,10 +1848,13 @@ impl LanguageServer for PhpcsLanguageServer {
             }
         }
 
-        eprintln!("✅ PHPCS LSP: Returning {} code actions for {}", code_actions.len(), file_name);
+        eprintln!(
+            "✅ PHPCS LSP: Returning {} code actions for {}",
+            code_actions.len(),
+            file_name
+        );
         Ok(Some(code_actions))
     }
-
 }
 
 #[tokio::main]
