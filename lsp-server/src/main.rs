@@ -121,6 +121,19 @@ fn generate_phpcs_doc_url(source: &str) -> Option<Url> {
     Url::parse(&url_str).ok()
 }
 
+/// Build a process command for a resolved PHP-tool path, applying the
+/// platform-specific spawn strategy from [`tools::plan_spawn`]. On Windows this
+/// routes the Composer `vendor/bin` proxy and `*.phar` files through `php`, and
+/// `.bat`/`.cmd` wrappers through `cmd /C`, instead of spawning them directly
+/// (which fails with `os error 193`). The caller appends the tool's own
+/// arguments afterwards.
+fn build_tool_command(tool_path: &str) -> ProcessCommand {
+    let plan = tools::plan_spawn(tool_path, cfg!(windows));
+    let mut cmd = ProcessCommand::new(&plan.program);
+    cmd.args(&plan.prefix_args);
+    cmd
+}
+
 impl PhpcsLanguageServer {
     fn new(client: Client) -> Self {
         Self {
@@ -238,7 +251,7 @@ impl PhpcsLanguageServer {
 
         let phpcbf_path = self.get_phpcbf_path();
 
-        let mut cmd = ProcessCommand::new(&phpcbf_path);
+        let mut cmd = build_tool_command(&phpcbf_path);
         cmd.arg("--no-colors")
            .arg("-q");
 
@@ -410,7 +423,7 @@ impl PhpcsLanguageServer {
         }
 
         let text = content.unwrap();
-        let mut cmd = ProcessCommand::new(&phpcs_path);
+        let mut cmd = build_tool_command(&phpcs_path);
         cmd.arg("--report=json")
            .arg("--no-colors")
            .arg("-q");
