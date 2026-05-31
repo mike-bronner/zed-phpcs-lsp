@@ -76,7 +76,7 @@ impl PhpcsLspServer {
         let archive_name = format!("{}.{}", binary_name, archive_ext);
         
         let release_url = format!(
-            "https://github.com/GeneaLabs/zed-phpcs-lsp/releases/download/{}/{}",
+            "https://github.com/mike-bronner/zed-phpcs-lsp/releases/download/{}/{}",
             VERSION,
             archive_name
         );
@@ -286,7 +286,7 @@ impl PhpcsLspExtension {
         let archive_name = format!("{}.tar.gz", phar_name);
         
         let release_url = format!(
-            "https://github.com/GeneaLabs/zed-phpcs-lsp/releases/download/{}/{}",
+            "https://github.com/mike-bronner/zed-phpcs-lsp/releases/download/{}/{}",
             VERSION,
             archive_name
         );

@@ -411,7 +411,7 @@ echo '<?xml version="1.0"?>
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/GeneaLabs/zed-phpcs-lsp.git
+   git clone https://github.com/mike-bronner/zed-phpcs-lsp.git
    cd zed-phpcs-lsp
    ```
 

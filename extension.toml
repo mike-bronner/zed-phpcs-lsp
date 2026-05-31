@@ -2,9 +2,9 @@ id = "phpcs"
 name = "PHPCS"
 version = "0.4.1"
 schema_version = 1
-authors = ["Mike Bronner <mike@genealabs.com>"]
+authors = ["Mike Bronner <mike.bronner@icloud.com>"]
 description = "PHP CodeSniffer Language Server for linting, formatting, and auto-fixing PHP code via PHPCS and PHPCBF."
-repository = "https://github.com/GeneaLabs/zed-phpcs-lsp"
+repository = "https://github.com/mike-bronner/zed-phpcs-lsp"
 
 [lib]
 kind = "Rust"
