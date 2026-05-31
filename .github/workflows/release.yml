@@ -10,7 +10,7 @@ on:
         required: true
 
 env:
-  GITHUB_TOKEN: ${{ secrets.OWNER_PAT || secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.ZED_PUBLISHING_TOKEN || secrets.GITHUB_TOKEN }}
 
 jobs:
   update-version:
@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Update tag and release
-        if: steps.commit_changes.outputs.new_commit_sha != ''
+        if: github.event_name == 'release' && steps.commit_changes.outputs.new_commit_sha != ''
         run: |
           TAG_NAME="${{ github.event.release.tag_name }}"
           RELEASE_ID="${{ github.event.release.id }}"
