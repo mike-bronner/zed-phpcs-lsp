@@ -195,7 +195,7 @@ jobs:
           fi
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.tag }}
           files: ${{ env.ASSET_PATH }}
@@ -227,7 +227,7 @@ jobs:
           tar -czf phpcbf.phar.tar.gz phpcbf.phar
 
       - name: Upload PHAR files
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.tag }}
           files: |
