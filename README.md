@@ -190,11 +190,13 @@ export PHPCBF_PATH="/custom/path/to/phpcbf"
 
 The extension finds PHPCS and PHPCBF in this priority order:
 
-1. **Project composer** - `vendor/bin/phpcs` (includes project dependencies like Slevomat)
-2. **User-configured path** - Custom path from Zed LSP settings
+1. **User-configured path** - Custom path from Zed LSP settings (explicit override always wins)
+2. **Project composer** - `vendor/bin/phpcs` (includes project dependencies like Slevomat)
 3. **Environment variable** - `PHPCS_PATH` / `PHPCBF_PATH`
 4. **System PATH** - Global phpcs installation (respects your `phpcs --config-set` settings)
 5. **Bundled PHAR** - Modern PHPCS v3.13.2+ (fallback, included with extension)
+
+> **🪟 Windows:** Composer's `vendor/bin/phpcs` and the bundled `.phar` are PHP scripts, not native executables, so they're launched through `php` automatically; `.bat`/`.cmd` wrappers run via `cmd /C`. Ensure `php` is on your `PATH`.
 
 > **💡 Global Config Support:** The extension now respects your system PHPCS configuration. Set global defaults with `phpcs --config-set default_standard PSR12` or `phpcs --config-set installed_paths /path/to/sniffs` and they'll work automatically without any Zed configuration.
 
@@ -350,7 +352,7 @@ Use PHPCS fixing alongside a separate formatter (e.g., Prettier for embedded HTM
 ### How It Works
 
 - Auto-fixing uses the same coding standard as linting (phpcs.xml discovery, Zed settings, etc.)
-- PHPCBF is discovered automatically using the same priority as PHPCS: project `vendor/bin` → user-configured path → `PHPCBF_PATH` env var → system PATH → bundled PHAR
+- PHPCBF is discovered automatically using the same priority as PHPCS: user-configured path → project `vendor/bin` → `PHPCBF_PATH` env var → system PATH → bundled PHAR
 - Auto-fixing and linting run from the same LSP process — no extra configuration needed
 - The `source.fixAll.phpcs` code action is also available in the lightbulb menu for manual use
 
