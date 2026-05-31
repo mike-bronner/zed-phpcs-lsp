@@ -161,7 +161,11 @@ impl PhpcsLanguageServer {
         // Compute checksum for cache invalidation
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
-        let checksum = format!("{:x}", hasher.finalize());
+        let checksum = hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
 
         // Update memory tracking
         self.total_memory_usage
