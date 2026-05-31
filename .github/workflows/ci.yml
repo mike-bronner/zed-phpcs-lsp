@@ -2,48 +2,60 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
-  push:
-    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
 
 jobs:
-  build:
-    name: Build & Lint
+  lsp-server:
+    name: LSP — test, fmt, clippy
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: lsp-server
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: rustfmt, clippy
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            lsp-server/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          workspaces: lsp-server
 
-      - name: Build extension
-        run: cargo build --verbose
+      - name: cargo fmt --check
+        run: cargo fmt --check
 
-      - name: Build LSP server
-        run: cargo build --verbose
-        working-directory: lsp-server
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: Clippy (extension)
-        run: cargo clippy -- -D warnings
+      - name: cargo test
+        run: cargo test --all-features
 
-      - name: Clippy (LSP server)
-        run: cargo clippy -- -D warnings
-        working-directory: lsp-server
+  extension:
+    name: Extension — wasm check, fmt, clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+          components: rustfmt, clippy
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        run: cargo clippy --target wasm32-wasip1 -- -D warnings
+
+      - name: cargo check
+        run: cargo check --target wasm32-wasip1
