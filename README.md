@@ -347,7 +347,7 @@ Use PHPCS fixing alongside a separate formatter (e.g., Prettier for embedded HTM
 }
 ```
 
-> **Important:** When using `code_actions_on_format` without a separate formatter, you must set `"formatter": []` to prevent Zed's default `"auto"` formatter from interfering. See [zed-industries/zed#51490](https://github.com/zed-industries/zed/issues/51490) for details.
+> **Important:** When using `code_actions_on_format` without a separate formatter, you must set `"formatter": []` to prevent Zed's default `"auto"` formatter from reverting the applied fixes. This is a workaround for [zed-industries/zed#51490](https://github.com/zed-industries/zed/issues/51490); once that issue is resolved — or [zed-industries/zed#48991](https://github.com/zed-industries/zed/pull/48991) lands, adding support for `"formatter": "none"` — the `"formatter": []` workaround will no longer be needed and can be removed from your settings.
 
 ### How It Works
 
