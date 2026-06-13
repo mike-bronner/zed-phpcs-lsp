@@ -85,7 +85,7 @@ if ($x === 1) {
 }
 ```
 
-> **Note:** This runs PHPCBF on every save, automatically fixing all fixable code style issues. The `"formatter": []` is required to prevent Zed's default formatter from interfering. See the [Auto-Fix on Save](#auto-fix-on-save) section for more configuration options.
+> **Note:** This runs PHPCBF on every save, automatically fixing all fixable code style issues. The `"formatter": []` is required to prevent Zed's default formatter from reverting the applied fixes. See the [Auto-Fix on Save](#auto-fix-on-save) section for more configuration options.
 
 ## Configuration
 
